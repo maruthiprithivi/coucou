@@ -383,6 +383,41 @@ pub fn ensure_hook_exe(app: &AppHandle) {
     };
     install_relay(&src, &dest);
 }
+pub fn ensure_extensions(app: &AppHandle) {
+    let dest_dir = settings::local_dir().join("extensions");
+    if std::fs::create_dir_all(&dest_dir).is_err() {
+        return;
+    }
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(p) = app.path().resolve("integrations", tauri::path::BaseDirectory::Resource) {
+        candidates.push(p);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            candidates.push(parent.join("integrations"));
+            candidates.push(parent.join("../integrations"));
+            candidates.push(parent.join("../../integrations"));
+        }
+    }
+    if let Some(src) = candidates.into_iter().find(|p| p.exists() && p.is_dir()) {
+        copy_dir_all(&src, &dest_dir).ok();
+    }
+}
+
+fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let dest_path = dst.join(entry.file_name());
+        if ty.is_dir() {
+            copy_dir_all(&entry.path(), &dest_path)?;
+        } else {
+            std::fs::copy(entry.path(), dest_path)?;
+        }
+    }
+    Ok(())
+}
 
 #[cfg(windows)]
 fn install_relay(src: &Path, dest: &Path) {

@@ -18,6 +18,8 @@ export const KNOWN_AGENTS: Record<string, KnownAgent> = {
   amp: { name: "Amp", color: "#F59E0B" },
   hermes: { name: "Hermes", color: "#C084FC" },
   "claude-desktop": { name: "Claude Desktop", color: "#D97757" },
+  pi: { name: "Pi", color: "#7C3AED" },
+  "oh-my-pi": { name: "Oh My Pi", color: "#F97316" },
 };
 
 /**

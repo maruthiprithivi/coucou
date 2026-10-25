@@ -101,6 +101,8 @@ pub enum Agent {
     OpenCode,
     Amp,
     Hermes,
+    Pi,
+    OhMyPi,
 }
 
 impl Agent {
@@ -114,6 +116,8 @@ impl Agent {
         Agent::OpenCode,
         Agent::Amp,
         Agent::Hermes,
+        Agent::Pi,
+        Agent::OhMyPi,
     ];
 
     /// The `--agent` name; the pill is `agent_<id>` (PillCatalog.swift).
@@ -128,6 +132,8 @@ impl Agent {
             Agent::OpenCode => "opencode",
             Agent::Amp => "amp",
             Agent::Hermes => "hermes",
+            Agent::Pi => "pi",
+            Agent::OhMyPi => "oh-my-pi",
         }
     }
 
@@ -151,6 +157,8 @@ impl Agent {
                 let dir = home.join(".hermes").join("plugins").join("coucou");
                 vec![dir.join("__init__.py"), dir.join("plugin.yaml")]
             }
+            Agent::Pi => vec![home.join(".pi").join("agent").join("settings.json")],
+            Agent::OhMyPi => vec![home.join(".omp").join("agent").join("config.yml")],
         }
     }
 
@@ -162,6 +170,32 @@ impl Agent {
         }
         let path = files[0].clone();
         let label = path.display().to_string();
+        if self == Agent::Pi {
+            let ext_path = settings::local_dir().join("extensions").join("pi").join("coucou.ts").to_string_lossy().replace('\\', "/");
+            let change = move |v: &Value| {
+                let mut root = v.as_object().cloned().unwrap_or_default();
+                let mut extensions = match root.get("extensions") {
+                    Some(Value::Array(arr)) => arr.clone(),
+                    None => Vec::new(),
+                    Some(_) => return Err(unexpected("\"extensions\"")),
+                };
+                let val = Value::String(ext_path.clone());
+                if install {
+                    if !extensions.contains(&val) {
+                        extensions.push(val);
+                    }
+                } else {
+                    extensions.retain(|x| x != &val);
+                }
+                root.insert("extensions".into(), Value::Array(extensions));
+                Ok(Some(Value::Object(root)))
+            };
+            return vec![FileEdit { path, edit: config_file::json_edit(label, Box::new(change)) }];
+        }
+        if self == Agent::OhMyPi {
+            let ext_path = settings::local_dir().join("extensions").join("oh-my-pi").join("coucou.ts").to_string_lossy().replace('\\', "/");
+            return vec![FileEdit { path, edit: config_file::yaml_edit(label, ext_path, install) }];
+        }
         let change = self.json_change(relay, install);
         vec![FileEdit { path, edit: config_file::json_edit(label, change) }]
     }
@@ -229,9 +263,11 @@ impl Agent {
                     .collect();
                 Box::new(move |v| muse_install(v, &commands).map(Some))
             }
-            // Plugins are whole files (see `plugin`), never merged into JSON.
             (Agent::OpenCode | Agent::Amp | Agent::Hermes, _) => {
                 Box::new(|_| Err(crate::i18n::t("This agent takes a plugin, not hook entries.")))
+            }
+            (Agent::Pi | Agent::OhMyPi, _) => {
+                Box::new(|_| Err(crate::i18n::t("This agent uses an extensions list, not hook entries.")))
             }
         }
     }
@@ -260,6 +296,16 @@ impl Agent {
                 .and_then(Value::as_object)
                 .is_some_and(|h| h.values().filter_map(Value::as_array).flatten().any(copilot_entry_is_ours)),
             Agent::Muse => groups_have_ours(&json(), "muse"),
+            Agent::Pi => {
+                let json = json();
+                json.get("extensions")
+                    .and_then(Value::as_array)
+                    .is_some_and(|arr| arr.iter().filter_map(Value::as_str).any(|s| s.contains("coucou.ts")))
+            }
+            Agent::OhMyPi => {
+                std::fs::read_to_string(&files[0])
+                    .is_ok_and(|text| text.contains("coucou.ts"))
+            }
             Agent::OpenCode | Agent::Amp | Agent::Hermes => false,
         }
     }
@@ -287,6 +333,8 @@ impl Agent {
             Agent::OpenCode => "OpenCode",
             Agent::Amp => "Amp",
             Agent::Hermes => "Hermes Agent",
+            Agent::Pi => "Pi",
+            Agent::OhMyPi => "Oh My Pi",
         }
     }
 
@@ -303,6 +351,8 @@ impl Agent {
             Agent::OpenCode => t("Restart OpenCode to load the plugin."),
             Agent::Amp => t("Restart Amp to load the plugin."),
             Agent::Hermes => t("Turn it on once with `hermes plugins enable coucou`, then start a new Hermes session."),
+            Agent::Pi => t("Start a new Pi session to pick the extensions up."),
+            Agent::OhMyPi => t("Start a new Oh My Pi session to pick the extensions up."),
         }
     }
 }

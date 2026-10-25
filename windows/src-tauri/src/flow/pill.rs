@@ -111,7 +111,7 @@ pub fn setup(app: &AppHandle) {
             .closable(false)
             .disable_drag_drop_handler()
             .focusable(false)
-            .visible(park);
+            .visible(false);
         if park {
             builder = builder.position(PARKED.0 as f64, PARKED.1 as f64);
         }

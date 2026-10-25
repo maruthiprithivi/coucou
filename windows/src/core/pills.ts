@@ -95,6 +95,11 @@ export const PILL_CATALOG: readonly PillDefinition[] = [
     subtitle: N_("Agent"), source: "agent", support: "yes", connect: hooks },
   { id: "agent_hermes", name: "Hermes", color: "#C084FC", category: "agent",
     subtitle: N_("Agent"), source: "agent", support: "yes", connect: hooks },
+  // Pi and Oh My Pi — official extensions from PR #842.
+  { id: "agent_pi", name: "Pi", color: "#7C3AED", category: "agent",
+    subtitle: N_("Agent"), source: "agent", support: "yes", connect: hooks },
+  { id: "agent_oh-my-pi", name: "Oh My Pi", color: "#F97316", category: "agent",
+    subtitle: N_("Agent"), source: "agent", support: "yes", connect: hooks },
   // Claude Code sessions run from the Claude desktop app: the relay tags them
   // from CLAUDE_CODE_ENTRYPOINT, so there is nothing to install. The app has no
   // Linux build.

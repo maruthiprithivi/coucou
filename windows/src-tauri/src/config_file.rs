@@ -126,7 +126,74 @@ pub fn text_edit<'a>(
         Ok(Change { before: current.unwrap_or_default().to_string(), after })
     })
 }
-
+/// An `Edit` for a YAML config file (like OMP's config.yml): `change` gets the current text
+/// and returns the new one with the extension path added or removed.
+pub fn yaml_edit<'a>(
+    label: String,
+    path_to_add: String,
+    install: bool,
+) -> Edit<'a> {
+    Box::new(move |bytes| {
+        let current = match bytes {
+            None => String::new(),
+            Some(b) => std::str::from_utf8(b)
+                .map_err(|_| tf("{file} isn't UTF-8 text — Coucou won't touch it.", &[("file", &label)]))?
+                .to_string(),
+        };
+        
+        let path_line = format!("  - {}", path_to_add);
+        let mut lines: Vec<String> = current.lines().map(|s| s.to_string()).collect();
+        
+        // Check if extensions: exists
+        let mut ext_idx = None;
+        let mut in_ext = false;
+        let mut already_present = false;
+        
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("extensions:") {
+                ext_idx = Some(i);
+                in_ext = true;
+                continue;
+            }
+            if in_ext {
+                if line.starts_with(' ') || line.starts_with('\t') {
+                    if trimmed == path_line.trim() {
+                        already_present = true;
+                    }
+                } else {
+                    in_ext = false;
+                }
+            }
+        }
+        
+        let after = if install {
+            if already_present {
+                current.clone()
+            } else if let Some(idx) = ext_idx {
+                // Insert right after extensions:
+                lines.insert(idx + 1, path_line);
+                lines.join("\n") + "\n"
+            } else {
+                // Append extensions: block
+                let mut new_text = current.clone();
+                if !new_text.is_empty() && !new_text.ends_with('\n') {
+                    new_text.push('\n');
+                }
+                new_text.push_str("extensions:\n");
+                new_text.push_str(&format!("  - {}\n", path_to_add));
+                new_text
+            }
+        } else {
+            // Uninstall: remove the line if present
+            lines.retain(|l| l.trim() != path_line.trim());
+            // If extensions: is now empty, we can leave it or keep clean
+            lines.join("\n") + (if lines.is_empty() { "" } else { "\n" })
+        };
+        
+        Ok(Change { before: current, after: Some(after) })
+    })
+}
 // ── Preview and apply ─────────────────────────────────────────────────────────
 
 /// Identifies the exact bytes a preview was computed from. FNV-1a is plenty:
